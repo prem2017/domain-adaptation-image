@@ -37,7 +37,7 @@ class ADALoss(nn.Module):
 		self.reduction = reduction
 
 		self.cls_lb_loss_func = nn.CrossEntropyLoss(weight=self.cls_lbs_weight, reduction=self.reduction)
-		self.src_lb_loss_func = nn.CrossEntropyLoss(weight=self.src_lbs_weight, reduction=self.reduction)
+		# self.src_lb_loss_func = nn.CrossEntropyLoss(weight=self.src_lbs_weight, reduction=self.reduction)
 
 
 
@@ -57,12 +57,12 @@ class ADALoss(nn.Module):
 
 		# pdb.set_trace()
 		loss_cls_lb = self.cls_lb_loss_func(output_cls_lbs, y_target_cls_lbs)
-		loss_src_lb = self.src_lb_loss_func(output_src_lbs, y_target_src_lbs)
+		# loss_src_lb = self.src_lb_loss_func(output_src_lbs, y_target_src_lbs)
 		
 		self.print_nan_loss(loss_cls_lb, output_cls_lbs, y_target_cls_lbs, 'Class')
-		self.print_nan_loss(loss_src_lb, output_src_lbs, y_target_src_lbs, 'Source')
+		# self.print_nan_loss(loss_src_lb, output_src_lbs, y_target_src_lbs, 'Source') 
 
-		loss = loss_cls_lb + loss_src_lb
+		loss = loss_cls_lb # + loss_src_lb
 		
 		return loss
 

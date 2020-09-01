@@ -280,10 +280,6 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 			x = x.to(device=device, dtype=torch.float32) # or float is alias for float32
 
 			# pdb.set_trace()
-			ep_ctr += 1
-			if ep_ctr % 2 == 0 and (kconfig.tr.train_flag or kconfig.tr.sanity_check_flag):
-				src_idx_randperm = torch.randperm(len(y_src_lbs))
-				y_src_lbs = y_src_lbs[src_idx_randperm]
 
 
 			y_cls_lbs = y_cls_lbs.to(device=device, dtype=torch.long)
@@ -560,6 +556,7 @@ def save_model(model, extra_extension=""):
 
 	model_path = os.path.join(util.get_models_dir(), util.get_custom_model_name(extra_extension))
 
+	
 	if next(model.parameters()).is_cuda:
 		model = model.cpu().float()
 
@@ -691,9 +688,8 @@ def main(sanity_check=False):
 	print('Pid = ', os.getpid())
 
 
-	# _cfd =>  confounding
-	util.set_trained_model_name(ext_cmt='_cfd') # ext_cmt = ['scratch', 'pretrained_resnet50']
 
+	util.set_trained_model_name(ext_cmt='_plain') # ext_cmt = ['scratch', 'pretrained_resnet50']
 
 
 	# TODO: use all transformer for full training

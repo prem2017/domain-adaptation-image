@@ -248,7 +248,7 @@ def get_arguments_parser(img_datapath):
 def main_onnx(also_test=False):
 	# pdb.set_trace()
 
-	util.set_trained_model_name(ext_cmt='_cfd') 
+	util.set_trained_model_name(ext_cmt='scratch') 
 	base_model_fname = util.get_trained_model_name()
 	use_batchnorm = kconfig.tr.use_batchnorm
 
@@ -274,7 +274,7 @@ def main():
 	util.reset_logger('predictor_output.log')
 
 	# First set the model_name and load 
-	util.set_trained_model_name(ext_cmt='_cfd') #  ['scratch', 'pretrained_resnet50']
+	util.set_trained_model_name(ext_cmt='_plain') #  ['scratch', 'pretrained_resnet50']
 	base_model_fname = util.get_trained_model_name()
 
 
