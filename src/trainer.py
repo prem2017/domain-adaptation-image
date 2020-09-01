@@ -25,9 +25,9 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 
 
-from .models import ADAConvNet, ADAConvNetClsLabel, ADAConvNetSrcLabel, PretrainedADAConvNet 
+from .models import ADAConvNet, PretrainedADAConvNet 
 from .image_dataset import ImageDataset
-from .loss_functions import ADALoss, ADAClsLabelLoss, ADASrcLabelLoss 
+from .loss_functions import ADALoss 
 
 from .report_gen_helper import gen_metric_report
 from .report_gen_helper import plot_roc_curves_binclass, plot_roc_curves_multiclass
@@ -144,12 +144,7 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 
 	"""
 
-	if isinstance(model, dict):
-		for k, v in model.items():
-			model[k] = v.train()
-	else:
-		model = model.train()
-
+	model = model.train()
 	logger_msg = '\nDataLoader = {}' \
 				 '\nModel = {}' \
 				 '\nLossFucntion = {}' \
@@ -162,14 +157,8 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 	# [https://arxiv.org/abs/1803.09820]
 	# This is used to find optimal learning-rate which can be used in one-cycle training policy
 	# [LR]TODO: for finding optimal learning rate
-
-	lr_scheduler = {}
 	if kconfig.tr.lr_search_flag:
-		if isinstance(optimizer, dict):
-			for k, opt in optimizer.items():
-				lr_scheduler[k] = MultiStepLR(optimizer=opt, milestones=list(np.arange(2, 24, 2)), gamma=10, last_epoch=-1)
-		else:
-			lr_scheduler = MultiStepLR(optimizer=optimizer, milestones=list(np.arange(2, 24, 2)), gamma=10, last_epoch=-1)
+		lr_scheduler = MultiStepLR(optimizer=optimizer, milestones=list(np.arange(2, 24, 2)), gamma=10, last_epoch=-1)
 		
 
 	# TODO: Cyclic momentum
@@ -183,39 +172,20 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 	def get_lr():
 		lr = []
 		# pdb.set_trace()
-
-		if isinstance(optimizer, dict): 
-			for k, opt in optimizer.items():
-				for param_group in opt.param_groups:
-					lr.append(np.round(param_group['lr'], 11))
-				break
-		else:
-			for param_group in optimizer.param_groups:
-				lr.append(np.round(param_group['lr'], 11))
+		for param_group in optimizer.param_groups:
+			lr.append(np.round(param_group['lr'], 11))
 		return lr
 
-
-
 	def set_lr(lr):
-		if isinstance(optimizer, dict):
-			for k, opt in optimizer.items():
-				for param_group in opt.param_groups:
-					param_group['lr'] = lr
-		else:
-			for param_group in opt.param_groups:
-				param_group['lr'] = lr
 
+		for param_group in optimizer.param_groups:
+			param_group['lr'] = lr
 
 	def set_momentum(m):
 		# pdb.set_trace()
+		for param_group in optimizer.param_groups:
+			param_group['momentum'] = m
 
-		if isinstance(optimizer, dict):
-			for k, opt in optimizer.items():
-				for param_group in opt.param_groups:
-					param_group['momentum'] = m
-		else:
-			for param_group in opt.param_groups:
-					param_group['momentum'] = m
 
 
 	# 'Training': loss Containers
@@ -274,7 +244,7 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 				current_momentum = end_momentum + ((start_momentum - end_momentum) * int(steps_completed - num_steps_upndown) / num_steps_upndown)
 
 			set_lr(current_lr)
-			# set_momentum(current_momentum)
+			set_momentum(current_momentum)
 		else:
 			current_lr = start_lr / (
 						further_lowering_factor ** ((current_epoch - num_epochs) // further_lowering_factor_steps))
@@ -289,15 +259,6 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 		train_dataloader = dataloader['train']
 
 
-	def reset_grad(optimizer):
-		# Zero Grad
-		if isinstance(optimizer, dict):
-			for k, opt in optimizer.items():
-				opt.zero_grad()
-		else:
-			optimizer.zero_grad()
-
-
 	# Model Tranining for 'total_epochs' 
 	counter = 0
 	ep_ctr = 0
@@ -307,22 +268,22 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 		start_time = time.time()
 		start_datetime = datetime.now()
 		
-		for i, (X, y) in enumerate(train_dataloader): 
+		for i, (x, y) in enumerate(train_dataloader): 
+
+			loss = 0
 
 			y_cls_lbs, y_src_lbs = y
 			# print(f'[Class Labels Counts] = {y_cls_lbs.unique(return_counts=True)   }', end='')
 			# print(f'[Source Labels Counts] = {y_src_lbs.unique(return_counts=True)   }', end='')
 
 
-			X = X.to(device=device, dtype=torch.float32) # or float is alias for float32
+			x = x.to(device=device, dtype=torch.float32) # or float is alias for float32
 
 			# pdb.set_trace()
-
-
-			# ep_ctr += 1
-			# if ep_ctr % 2 == 0 and (kconfig.tr.train_flag or kconfig.tr.sanity_check_flag):
-			# 	src_idx_randperm = torch.randperm(len(y_src_lbs))
-			# 	y_src_lbs = y_src_lbs[src_idx_randperm]
+			ep_ctr += 1
+			if ep_ctr % 2 == 0 and (kconfig.tr.train_flag or kconfig.tr.sanity_check_flag):
+				src_idx_randperm = torch.randperm(len(y_src_lbs))
+				y_src_lbs = y_src_lbs[src_idx_randperm]
 
 
 			y_cls_lbs = y_cls_lbs.to(device=device, dtype=torch.long)
@@ -336,91 +297,13 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 				print('[Break] by force for validation check')
 				break
 
-
-
-
-			# 
-			if isinstance(model, dict):
-				features_repr = model['feature_repr_model'](X)
-
-				cls_output = model['cls_model'](features_repr)
-				src_output = model['src_model'](features_repr)
-
-			else:	
-				output = model(X) #
-
+			
+			optimizer.zero_grad()
+			output = model(x) # 
 
 			# pdb.set_trace()
 
-			# Reset gradient
-			reset_grad(optimizer)
- 
-
-			# Domain-Adversarial Training of Neural Networks: https://arxiv.org/abs/1505.07818
-			if isinstance(loss_function, dict):
-				cls_loss = loss_function['cls_loss'](cls_output, y_cls_lbs)
-				src_loss = loss_function['src_loss'](src_output, y_src_lbs)
-
-				feature_loss = cls_loss - src_loss
-
-				# pdb.set_trace()
-
-
-				feature_loss.backward()
-
-
-				# print(f"\n[Wt] = {model['feature_repr_model'].fc1[0].weight[:10, ...]}")
-				# print(f"\n[grad] = {model['feature_repr_model'].fc1[0].weight.grad[:10, ...]}")
-
-				
-
-				optimizer['feature_repr_opt'].step()
-
-				print('[After] step')
-				# print(f"\n[Wt] = {model['feature_repr_model'].fc1[0].weight[:10, ...]}")
-				# print(f"\n[grad] = {model['feature_repr_model'].fc1[0].weight.grad[:10, ...]}")
-
-
-
-				# print('[Check what happens to gradient]')
-
-
-				reset_grad(optimizer)
-
-
-				# pdb.set_trace()
-
-				features_repr = features_repr.detach()
-
-				cls_output = model['cls_model'](features_repr)
-				src_output = model['src_model'](features_repr)
-
-
-				# cls_output = model['cls_model'](features_repr)
-				cls_loss = loss_function['cls_loss'](cls_output, y_cls_lbs)
-				cls_loss.backward()
-
-				optimizer['cls_opt'].step()
-
-
-
-				# src_output = model['src_model'](features_repr)
-				src_loss = loss_function['src_loss'](src_output, y_src_lbs)
-				src_loss.backward()
-
-				optimizer['src_opt'].step()
-
-
-				loss = feature_loss + cls_loss + src_loss
-
-
-			else:
-				loss = loss_function(output, y)
-				loss.backward()
-				optimizer.step()
-
-
-
+			loss = loss_function(output, y)
 
 			# gap = 1
 			# if counter > 1 and counter % gap == 0:
@@ -441,20 +324,9 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 			# 	print_wt_n_output(model, y, output, optimizer=optimizer)
 			# counter += 1
 
-			# pdb.set_trace()
-			# if isinstance(loss_function, dict):
 
-			# 	# check <model['feature_repr_model']> grad before and after also 
-			# 	# check <model['cls_model']>	
-			# 	feature_loss.backward()
-
-
-			# 	cls_loss.backward()
-			# 	src_loss.backward()
-
-			# else:
-			# 	loss.backward()
-
+			loss.backward()
+			optimizer.step()
 
 			# set_momentum(0.90)
 
@@ -557,10 +429,7 @@ def train_network(dataloader, model, loss_function, optimizer, start_lr, end_lr,
 		
 		# Cyclic alteration of 'LR' during up and down steps movements.
 		if kconfig.tr.lr_search_flag:
-			# lr_scheduler.step(epoch + 1) # TODO: Only for estimating good learning rate
-			if isinstance(lr_scheduler, dict):
-				for key, lr_scheduler_eg in lr_scheduler.items():
-					lr_scheduler_eg.step(epoch + 1)
+			lr_scheduler.step(epoch + 1) # TODO: Only for estimating good learning rate
 		else:
 			one_cycle_lr_setter(epoch + 1)
 
@@ -605,20 +474,14 @@ def cal_loss_and_metric(model: torch.nn.Module,
 						model_type='val_set'):
 	"""Computes loss on val/test data and return a prepared metric report on that"""
 	
-
-	if isinstance(model, dict):
-		for k, v in model.items():
-			model[k] = v.eval()
-	else:
-		model = model.eval()
-
+	model = model.eval()
 	# pdb.set_trace()
 	
 	total_loss = 0
 	y_pred_all = None
 	y_true_all = None
 	with torch.no_grad():
-		for i, (X, y) in enumerate(dataloader): # last one is true image size
+		for i, (x, y) in enumerate(dataloader): # last one is true image size
 			print('[Val/Test] batch i = ', i)
 			loss = 0
 
@@ -626,62 +489,29 @@ def cal_loss_and_metric(model: torch.nn.Module,
 			# print(f'[Class Labels Counts] = {y_cls_lbs.unique(return_counts=True)}', end='')
 			# print(f'[Source Labels Counts] = {y_src_lbs.unique(return_counts=True) }')
 
-			X = X.to(device=device, dtype=torch.float32) # or float is alias for float32
-
-
+			x = x.to(device=device, dtype=torch.float32) # or float is alias for float32
 			y_cls_lbs = y_cls_lbs.to(device=device, dtype=torch.long)
 			y_src_lbs = y_src_lbs.to(device=device, dtype=torch.long)
-
-
-			# pdb.set_trace()
-
-
-			if isinstance(model, dict):
-				features_repr = model['feature_repr_model'](X)
-
-				y_pred_cls = cls_output = model['cls_model'](features_repr)
-				y_pred_src = src_output = model['src_model'](features_repr)
-
-			else:	
-				output = model(X) # 
-
-
-			if isinstance(loss_func, dict):
-				cls_loss = loss_func['cls_loss'](cls_output, y_cls_lbs)
-				src_loss = loss_func['src_loss'](src_output, y_src_lbs)
-
-				feature_loss = cls_loss - src_loss
-
-				loss = feature_loss + cls_loss + src_loss
-
-			else:
-				loss = loss_func(output, y)
-
 
 			y = (y_cls_lbs, y_src_lbs)
 
 
+			y_pred = model(x)
+			loss = loss_func(y_pred, y)
 
 			total_loss += loss.item()
 
+			y_pred_cls, y_pred_src = y_pred
 
 			# Because we need to only generate 'metric' on class labels i.e. object classes. It is not for the origin of data. 
 			y_pred_all = y_pred_cls if y_pred_all is None else torch.cat((y_pred_all, y_pred_cls), dim=0)
 			y_true_all = y_cls_lbs if y_true_all is None else torch.cat((y_true_all, y_cls_lbs), dim=0)
 
 
-
 	# pdb.set_trace()
 	
 	report, f1_checker, auc_val = gen_metric_report(y_true_all, y_pred_all)
-
-	if isinstance(model, dict):
-		for k, v in model.items():
-			model[k] = v.train()
-	else:
-		model = model.train()
-
-
+	model = model.train()
 	avg_loss =  np.round(total_loss / (i + 1.0), 6)
 	
 	if kconfig.img.num_cls_lbs > 2:
@@ -690,6 +520,8 @@ def cal_loss_and_metric(model: torch.nn.Module,
 		plot_roc_curves_binclass(report, epoch_iter, model_type=model_type)
 	
 	return avg_loss, report, f1_checker, auc_val  # avg_loss, score, model
+
+
 
 
 
@@ -724,32 +556,18 @@ def save_model(model, extra_extension=""):
 	msg = '[Save] model extra_extension = {}'.format(extra_extension)
 	logger.info(msg); print(msg)
 
+	# model_path = os.path.join(util.get_models_dir(), util.get_trained_model_name()) + extra_extension
+
 	model_path = os.path.join(util.get_models_dir(), util.get_custom_model_name(extra_extension))
 
-	if isinstance(model, dict):
-		model_dict = {}
-		for mdl_name, mdl in model.items():
-			if next(mdl.parameters()).is_cuda:
-				mdl =  mdl.cpu().float()
-			model_dict[mdl_name] = mdl.state_dict()
-	else:
-		if next(model.parameters()).is_cuda:
-			model = model.cpu().float()
+	if next(model.parameters()).is_cuda:
+		model = model.cpu().float()
 
-		model_dict = model.state_dict()
-
-
+	model_dict = model.state_dict()
 	torch.save(model_dict, model_path)
 	
-	ret_mdl = {}
-	if isinstance(model, dict):
-		for k, mdl in model.items():
-			ret_mdl[k] = mdl.to(device)
-	else:
-		ret_mdl = model.to(device)
-
-
-	return ret_mdl
+	models_dict = model.to(device)
+	return models_dict
 
 
 #----------------------------------------------------------------------------
@@ -814,41 +632,21 @@ def init_for_training(train_data_info, val_data_info, test_data_info, sanity_che
 	# NN Args
 	net_args = {}
 	net_args['in_channels'] = 3
-	
-	# net_args['num_cls_lbs'] = kconfig.img.num_cls_lbs
-	# net_args['num_src_lbs'] = kconfig.img.num_src_lbs
-	
+	net_args['num_cls_lbs'] = kconfig.img.num_cls_lbs
+	net_args['num_src_lbs'] = kconfig.img.num_src_lbs
 	net_args['model_img_size'] = kconfig.img.size
 	net_args['nonlinearity_function'] = None # nn.LeakyReLU()
 	net_args['use_batchnorm'] = kconfig.tr.use_batchnorm # False
 	net_args['dropout'] = dropout
 	# net_args['use_batchnorm'] = use_batchnorm
 
-	model = {}
 	if kconfig.tr.use_pretrained_flag:
 		# net_args['eps'] = 1e-3
 		model = PretrainedADAConvNet(**net_args)
 	else:
-		model['feature_repr_model'] = ADAConvNet(**net_args)
+		model = ADAConvNet(**net_args) 
 
-		feature_repr_len = ADAConvNet.compute_feature_repr_len( kconfig.img.size)
-
-		msg = f'[feature_repr_len] = {feature_repr_len}'
-
-		print(msg); logger.info(msg);
-
-		model['cls_model'] = ADAConvNetClsLabel(feature_repr_len, kconfig.img.num_cls_lbs)
-		model['src_model'] = ADAConvNetSrcLabel(feature_repr_len, kconfig.img.num_src_lbs)
-
-
-	# pdb.set_trace()
-	if isinstance(model, dict):
-		for k, v in model.items():
-			model[k] = v.to(device)
-	else:
-		 model = model.to(device)
-
-	train_params['model'] = model
+	train_params['model'] = model = model.to(device)
 
 
 	# Loss Args
@@ -858,37 +656,14 @@ def init_for_training(train_data_info, val_data_info, test_data_info, sanity_che
 
 	# pdb.set_trace()
 	loss_args['reduction'] = kconfig.loss.reduction
-	
+	loss_function = ADALoss(**loss_args)
 
-	loss_function = {'cls_loss': ADAClsLabelLoss(kconfig.img.cls_lbs_weight, kconfig.loss.reduction), 
-					 'src_loss': ADASrcLabelLoss(kconfig.img.src_lbs_weight, kconfig.loss.reduction)
-					 }
+	train_params['loss_function'] = loss_function.to(device)
 
-	if isinstance(loss_function, dict):
-		for k, v in loss_function.items():
-			loss_function[k] = v.to(device)
-	else:
-		loss_function = loss_function.to(device)
-
-
-	train_params['loss_function'] = loss_function
-
-
-	optimizer = {}
 
 	momentum = 0.95
+	optimizer = Optimizer.sgd_optimizer(params=model.parameters(), lr=start_lr, weight_decay=weight_decay, momentum=momentum)
 
-	if isinstance(model, dict):
-		for k, v in model.items():
-			opt_name = '_'.join(k.split('_')[:-1]) + '_opt'
-			print(f'[Key] = {k}, Opt Name = {opt_name}, Net Name = {v.__class__.__name__}')
-			optimizer[opt_name] = Optimizer.adam_optimizer(params=v.parameters(), lr=start_lr, weight_decay=weight_decay)
-			# rmsprop_optimizer(params=v.parameters(), lr=start_lr, weight_decay=weight_decay)
-			# sgd_optimizer(params=v.parameters(), lr=start_lr, weight_decay=weight_decay, momentum=momentum)
-	else:
-		optimizer = Optimizer.sgd_optimizer(params=model.parameters(), lr=start_lr, weight_decay=weight_decay, momentum=momentum)
-
-	# Optimizer.sgd_optimizer(params=v.parameters(), lr=start_lr, weight_decay=weight_decay, momentum=momentum)
 	# optimizer = Optimizer.adam_optimizer(params=model.parameters(), lr=start_lr, weight_decay=weight_decay)
 	# optimizer = Optimizer.rmsprop_optimizer(params=model.parameters(), lr=start_lr, weight_decay=weight_decay)
 
@@ -906,18 +681,19 @@ def init_for_training(train_data_info, val_data_info, test_data_info, sanity_che
 
 def main(sanity_check=False):
 
-	np.random.seed(99)
-	torch.manual_seed(99)
+	np.random.seed(666)
+	torch.manual_seed(666)
 	if torch.cuda.is_available():
-		torch.cuda.manual_seed(99)
+		torch.cuda.manual_seed(666)
 		torch.backends.cudnn.deterministic = True
 		torch.backends.cudnn.benchmark = False
 
 	print('Pid = ', os.getpid())
 
 
+	# _cfd =>  confounding
+	util.set_trained_model_name(ext_cmt='_cfd') # ext_cmt = ['scratch', 'pretrained_resnet50']
 
-	util.set_trained_model_name(ext_cmt='_paper') # ext_cmt = ['scratch', 'pretrained_resnet50']
 
 
 	# TODO: use all transformer for full training

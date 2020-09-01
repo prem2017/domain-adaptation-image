@@ -12,7 +12,7 @@ tr: # Training Parameters
 
   # data_list_fname: '' # TODO
 
-  use_batchnorm: True
+  use_batchnorm: False
 
 
   # For full test
@@ -25,20 +25,20 @@ lr:
   
   sanity_check: [6.0e-4, 9.0e-4] # [2.0e-3, 7.0e-3]
   
-  train: [2.0e-4, 9.0e-4] # [2.0e-3, 7.0e-3]  
+  train: [6.0e-4, 9.0e-4] # [2.0e-3, 8.0e-3]
   
 
 epochs:
   lr_search: 20
   sanity_check: 70
-  train: 70 # 70 # TODO: 90
+  train: 70 # TODO: 90
 
 
 one_cycle_policy:
   num_steps_upndown: 10
   extra_epochs:
     lr_search: 4
-    train: 20 # 20 # TODO: 20
+    train: 20 # TODO: 20
     lower_after: 4
     lowering_factor: 10
 

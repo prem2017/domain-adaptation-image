@@ -60,10 +60,13 @@ get_project_dir = lambda: K_PROJECT_DIR
 
 
 
+# K_DATA_DIR = os.path.join(K_PROJECT_DIR, 'data')
 K_DATA_DIR = os.path.join(os.environ['HOME'], 'data/ada_data')
 get_root_data_dir = get_data_dir = lambda data_dir='': os.path.join(K_DATA_DIR, data_dir) # In case there is further depth to directory
 get_rel_data_dir = lambda data_dir='': os.path.join('data', data_dir)
 get_img_data_dir = lambda img_dir: os.path.join(get_root_data_dir(), img_dir)
+
+
 
 
 get_train_datapath = lambda: os.path.join(get_data_dir(), 'train')
@@ -101,14 +104,16 @@ kconfig = DotDict(config_yaml)
 
 #----------------------------------------------------------------------------
  
+
+
+
 K_TRAINED_MODELNAME = kconfig.model.name
 K_MDL_EXT = 'mdl'
 def set_trained_model_name(ext_cmt=''):
 	global K_TRAINED_MODELNAME
+	K_TRAINED_MODELNAME = kconfig.model.name
 	main_mdl_name = K_TRAINED_MODELNAME.split('.')[0]
-
 	K_TRAINED_MODELNAME = f"{main_mdl_name}{ext_cmt}.{K_MDL_EXT}"
-	
 	return K_TRAINED_MODELNAME
 
 

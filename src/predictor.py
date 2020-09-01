@@ -23,8 +23,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
-from .models import ADAConvNet, ADAConvNetClsLabel, ADAConvNetSrcLabel, PretrainedADAConvNet 
-
+from .models import ADAConvNet, PretrainedADAConvNet 
 from .image_dataset import ImageDataset
 from .transformers import NormalizeImageData
 
@@ -48,36 +47,24 @@ def load_trained_model(model_fname, use_batchnorm=False):
 	"""Loads the pretrained model for the given model name."""
 
 	model_path = os.path.join(util.get_models_dir(), model_fname)
+	model = {}
 
 	# NN Args
 	net_args = {}
 	net_args['in_channels'] = 3
-	
-	# net_args['num_cls_lbs'] = kconfig.img.num_cls_lbs
-	# net_args['num_src_lbs'] = kconfig.img.num_src_lbs
-	
+	net_args['num_cls_lbs'] = kconfig.img.num_cls_lbs
+	net_args['num_src_lbs'] = kconfig.img.num_src_lbs
 	net_args['model_img_size'] = kconfig.img.size
 	net_args['nonlinearity_function'] = None # nn.LeakyReLU()
-	net_args['use_batchnorm'] = use_batchnorm # kconfig.tr.use_batchnorm # False
-	net_args['dropout'] =  kconfig.hp.train.dropout 
+	net_args['use_batchnorm'] = use_batchnorm # False
+	net_args['dropout'] = kconfig.hp.train.dropout 
 
-	# net_args['use_batchnorm'] = use_batchnorm
 
-	model_dict = {}
 	if kconfig.tr.use_pretrained_flag:
 		# net_args['eps'] = 1e-3
-		model_dict = PretrainedADAConvNet(**net_args)
+		model = PretrainedADAConvNet(**net_args)
 	else:
-		model_dict['feature_repr_model'] = ADAConvNet(**net_args)
-
-		feature_repr_len = ADAConvNet.compute_feature_repr_len(kconfig.img.size)
-
-		msg = f'[feature_repr_len] = {feature_repr_len}'
-
-		print(msg); logger.info(msg);
-
-		model_dict['cls_model'] = ADAConvNetClsLabel(feature_repr_len, kconfig.img.num_cls_lbs)
-		model_dict['src_model'] = ADAConvNetSrcLabel(feature_repr_len, kconfig.img.num_src_lbs)
+		model = ADAConvNet(**net_args) 
 
 
 	saved_state_dict = torch.load(model_path, map_location= lambda storage, loc: storage)
@@ -85,19 +72,11 @@ def load_trained_model(model_fname, use_batchnorm=False):
 	# Available dict
 	# raw_model_dict = model.state_dict()
 	
-	for key, model_state_dict in saved_state_dict.items():
-		print(model_dict[key].load_state_dict(model_state_dict))
 
+	model.load_state_dict(saved_state_dict)
+	model = model.eval()
 
-	# pdb.set_trace()
-	if isinstance(model_dict, dict):
-		for key, model in model_dict.items():
-			model_dict[key] = model.eval()
-	else:
-		model_dict = model_dict.eval()
-
-
-	return model_dict
+	return model
 
 
 
@@ -105,11 +84,10 @@ def load_trained_model(model_fname, use_batchnorm=False):
 
 # https://pytorch.org/docs/stable/onnx.html
 def save_in_onnx(model, onnx_path):
-	"""Note: This method is not adapted for dictionay of model """
 	# First set the model_name and load 
 
 	# pdb.set_trace()
-	h, w = kconfig.img.size # util.get_model_img_size()
+	h, w =  kconfig.img.size
 	dummy_input = torch.randn(1, 3, h, w)
 
 	print('[Dummy Output] = ', model(dummy_input))
@@ -126,10 +104,7 @@ def save_in_onnx(model, onnx_path):
 
 
 #----------------------------------------------------------------------------
-
 def load_from_onnx(onnx_path):
-	"""Note: This method is not adapted for dictionay of model """
-
 
 	pdb.set_trace()
 	model_onnx = onnx.load(onnx_path)
@@ -140,7 +115,7 @@ def load_from_onnx(onnx_path):
 	# Print a human readable representation of the graph
 	print(onnx.helper.printable_graph(model_onnx.graph))
 
-	h, w = kconfig.img.size # util.get_model_img_size()
+	h, w =  kconfig.img.size # util.get_model_img_size()
 	dummy_input = np.random.randn(2, 3, h, w).astype(np.float32) # astype(np.float32) is needed to conform to the datatype
 
 	# Load onnx to torch model
@@ -171,32 +146,25 @@ def generate_report(model, test_dataloader, image_names, model_name, save_all_cl
 	with torch.no_grad():
 		for i, xy in enumerate(test_dataloader):
 			print('[Predicting for] batch i = ', i)
-			X, y = xy
+			x, y = xy
 
 			y_cls_lbs, y_src_lbs = y
-			X = X.to(device=device, dtype=torch.float32) # or float is alias for float32
+			x = x.to(device=device, dtype=torch.float32) # or float is alias for float32
 			
 			y_check = y_cls_lbs
 			if math.isnan(y_check[0].item()):
 				y = None
 			else:
-				#print(f'[Class Labels Counts] = {y_cls_lbs.unique(return_counts=True)   }', end='')
-				#print(f'[Source Labels Counts] = {y_src_lbs.unique(return_counts=True)   }', end='')
+				# print(f'[Class Labels Counts] = {y_cls_lbs.unique(return_counts=True)   }', end='')
+				# print(f'[Source Labels Counts] = {y_src_lbs.unique(return_counts=True)   }', end='')
 				y_cls_lbs = y_cls_lbs.to(device=device, dtype=torch.long)
 				y_src_lbs = y_src_lbs.to(device=device, dtype=torch.long)
 
 				y = (y_cls_lbs, y_src_lbs)
 
 
-			if isinstance(model, dict):
-				features_repr = model['feature_repr_model'](X)
-
-				y_pred_cls = cls_output = model['cls_model'](features_repr)
-				y_pred_src = src_output = model['src_model'](features_repr)
-
-			else:	
-				output = model(X) # 
-
+			y_pred = model(x)
+			y_pred_cls, y_pred_src = y_pred
 
 			# Because we need to only generate 'metric' on class labels i.e. object classes. It is not for the origin of data. 
 			if y is not None: # if label is not none
@@ -274,14 +242,13 @@ def get_arguments_parser(img_datapath):
 
 
 
+
 #----------------------------------------------------------------------------
 
 def main_onnx(also_test=False):
-	"""Note: This method is not adapted for dictionay of model """
-
 	# pdb.set_trace()
 
-	util.set_trained_model_name(ext_cmt='scratch') 
+	util.set_trained_model_name(ext_cmt='_cfd') 
 	base_model_fname = util.get_trained_model_name()
 	use_batchnorm = kconfig.tr.use_batchnorm
 
@@ -299,6 +266,7 @@ def main_onnx(also_test=False):
 
 
 
+
 #----------------------------------------------------------------------------
 
 def main():
@@ -306,16 +274,16 @@ def main():
 	util.reset_logger('predictor_output.log')
 
 	# First set the model_name and load 
-	util.set_trained_model_name(ext_cmt='_paper') #  ['_paper', 'pretrained_resnet50']
-	# base_model_fname = util.get_trained_model_name()
+	util.set_trained_model_name(ext_cmt='_cfd') #  ['scratch', 'pretrained_resnet50']
+	base_model_fname = util.get_trained_model_name()
 
 
 	use_batchnorm = kconfig.tr.use_batchnorm
 	img_info_datapath = util.get_test_info_datapath() # get_all_info_datapath() # get_test_info_datapath
 
+
 	# Dataset Args 
 	data_dir =  kconfig.img.data_dir # ''
-
 
 	data_info_args = {}
 	data_info_args['root_data_dir'] = util.get_data_dir(data_dir)
@@ -330,6 +298,7 @@ def main():
 
 
 	ex =  '' # 
+	# model_fnames = [base_model_fname + ex for ex in ['', '_maxauc', '_maxf1', '_minval', '_mintrain']] #  ['', '_maxauc', '_maxf1', '_minval', '_mintrain'] 
 	model_fnames = [util.get_custom_model_name(ex) for ex in ['', '_maxauc', '_maxf1', '_minval', '_mintrain']] #  ['', '_maxauc', '_maxf1', '_minval', '_mintrain'] 
 
 
@@ -337,6 +306,7 @@ def main():
 	output = {}
 	for i, model in enumerate(models):
 		print(f'\n\n[Generating Report] for model = {model_fnames[i]}\n')
+		
 		generate_report(model, test_dataloader, image_names=image_names, model_name=model_fnames[i], save_all_class_prob=True)
 		
 		
@@ -345,10 +315,6 @@ def main():
 	print(output)
 	print('\n######################################################\n\n')
 	return output
-
-
-
-
 
 
 

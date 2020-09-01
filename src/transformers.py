@@ -393,9 +393,8 @@ class NormalizeImageData(object):
 		# mean=[0.485, 0.456, 0.406]
 		# std=[0.229, 0.224, 0.225]
 		# pdb.set_trace()
-		print(mean, std)
-		self.mean = np.array(mean) # [0.485, 0.456, 0.406] # np.array(mean)
-		self.std = np.array(std) # [0.229, 0.224, 0.225] #S np.array(std)
+		self.mean = np.array(mean)
+		self.std = np.array(std)
 	
 	def __call__(self, X: np.ndarray):
 
