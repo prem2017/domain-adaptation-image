@@ -1,0 +1,147 @@
+---
+tr: # Training Parameters
+  lr_search_flag: False
+  
+  sanity_check_flag: False
+  
+  train_flag: True # not really used just for consistency
+
+  use_pretrained_flag: False # If pretrained model should be used or not
+
+  batch_size: 64 # 64, 128
+
+  # data_list_fname: '' # TODO
+
+  use_batchnorm: True
+
+
+  # For full test
+  early_break: False # TODO: early break
+  
+
+
+lr:
+  lr_search: [1.0e-6, 10.0]
+  
+  sanity_check: [6.0e-4, 9.0e-4] # [2.0e-3, 7.0e-3]
+  
+  train: [2.0e-4, 9.0e-4] # [2.0e-3, 7.0e-3]  
+  
+
+epochs:
+  lr_search: 20
+  sanity_check: 70
+  train: 70 # 70 # TODO: 90
+
+
+one_cycle_policy:
+  num_steps_upndown: 10
+  extra_epochs:
+    lr_search: 4
+    train: 20 # 20 # TODO: 20
+    lower_after: 4
+    lowering_factor: 10
+
+
+img:
+  width: &id_w 128
+  height: &id_h 128
+  size: [*id_w, *id_h] # !!python/tuple [64, 64] is also possible but then you can not use safe_load
+
+  labels_dict: {0: 'shorts', 1: 'snake', 2: 'table', 3: 'tiger', 4: 'toothbrush', 5: 'tree', 6: 'truck', 7: 'van', 8: 'wine_glass', 9: 'wristwatch', 10: 'yoga'}
+  # labels_dict_oth: {0: 'table', 1: 'television', 2: 'toilet', 3: 'tooth', 4: 'toothbrush', 5: 'tree', 6: 'truck', 7: 'umbrella', 8: 'van', 9: 'washing_machine', 10: 'wine_glass'}
+  data_dir: 'shts_to_yoga' # 'tbl_to_wngl'
+
+  # labels_name: labels_dict values is labels_name, therefore, no need and   # &id_ln ['shorts', 'snake', 'table', 'tiger', 'toothbrush', 'tree', 'truck', 'van', 'wine_glass', 'wristwatch', 'yoga']
+  # labels_fname: labels_dict values is labels_fnames, therefore, no need  and also force fname and name of class to be same# *id_ln
+  # labels_name__oth: &id_lno ['table', 'television', 'toilet', 'tooth', 'toothbrush', 'tree', 'truck', 'umbrella', 'van', 'washing_machine', 'wine_glass']
+  # labels_oth_fname: *id_lno # TODO
+
+  colors_dict_for_plotting: {0: '#2DCC69', 1: '#B6BA78', 2: '#4D8E3C', 3: '#F96E2F', 4: '#923177', 5: '#D94DC8', 6: '#66CDF8', 7: '#8186E2', 8: '#7421F6', 9: '#EC0715', 10: '#98EF89', 'micro-average': 'deeppink'}
+  # TODO: For consistency this may be needed as one of the key is string{'0': '#2DCC69', '1': '#B6BA78', '2': '#4D8E3C', '3': '#F96E2F', '4': '#923177', '5': '#D94DC8', '6': '#66CDF8', '7': '#8186E2', '8': '#7421F6', '9': '#EC0715', '10': '#98EF89', 'micro-average': 'deeppink'}
+  
+  num_cls_lbs: 11 # Number of classes in the TD
+  cls_lbs_weight: null 
+
+  # Because we need a classifier in main network which also classifies source of origin of data
+  train_sources_dict: {0: 'quickdraw', 1: 'real', 2: 'sketch'} # This forces dir-name to be same as given here and can be used easily for labelling multi-source data as well. 
+  
+  num_src_lbs: 3 # Different number of sources from which the classes comes. 
+
+  src_lbs_weight: null
+
+  test_sources_dict: {3: 'infograph'} # Just for consistency. Test data is tested only on class and not on the source of its origin class. Number 3 because traing has sources from 0, 1, 2. 
+
+loss:
+  reduction: 'mean'
+
+
+val:
+  batch_size: 16
+  # data_list_fname   : '' # TODO
+
+
+test:
+  batch_size: 64
+  # data_list_fname: '' # TODO
+
+
+all: # data_list_fname: '' # TODO
+
+
+model:
+  name: 'multi_class_adann.mdl'
+  # save_loc_dir: 'shts_to_yoga' &id_save_loc_dir # 'tbl_to_wngl'
+
+hp:
+  train: 
+    weight_decay: 1.0e-3
+    dropout: 0.4
+  
+  sanity_check:
+    weight_decay: 0
+    dropout: 0
+
+  lr_search:
+    weight_decay: 0
+    dropout: 0
+
+
+  
+
+
+
+
+
+
+# --- 
+# doe: "a deer, a female deer"
+# ray: "a drop of golden sun"
+# pi: 3.14159
+# xmas: true
+# french-hens: 3
+# val: 13
+# calling-birds: 
+#   - huey
+#   - dewey
+#   - louie
+#   - fred
+# xmas-fifth-day: 
+#   calling-birds: 'four'
+#   french-hens: 3
+#   golden-rings: 5
+#   partridges: 
+#     count: 1
+#     location: "a pear tree"
+#   turtle-doves: two
+
+# actions:
+#   - Create-object:
+#       Type: Enterprise
+#       type: Domain
+
+# # Ranking of 1998 home runs 
+# # ---
+# # - Mark McGwire
+# # - Sammy Sosa
+# # - Ken Griffey
